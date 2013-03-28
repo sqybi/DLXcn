@@ -1,0 +1,32 @@
+@charset "utf-8";
+.article {
+	font-size: xx-large;
+	font-weight: bold;
+	font-variant: normal;
+}
+.section {
+	font-size: medium;
+	font-weight: bold;
+}
+
+.author {
+	font-size: medium;
+	font-weight: bold;
+}
+a:link {
+	color: #339900;
+	text-decoration: none;
+}
+a:visited {
+	color: #339900;
+	text-decoration: none;
+}
+a:hover {
+	color: #339900;
+	text-decoration: underline;
+}
+
+body {
+	font-family: "宋体";
+	font-size: small;
+}

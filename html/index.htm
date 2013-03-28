@@ -1,0 +1,1305 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>DLXcn -- Dancing Links 中文版</title>
+<link href="dlxcn.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+<p align="center"><span class="article">Dancing Links中文版（DLXcn）</span><br />
+<span class="author">Donald E.Knuth, Stanford University</span></p>
+<p align="center"><strong>翻译</strong> 武汉武钢三中 吴豪<br />
+  <strong>更正 排版</strong> 上海交通大学 隋清宇（sqybi）<br />
+  <strong>最近更新：</strong>2012-06-06</p>
+<p><span class="section"><strong>目录</strong></span></p>
+<p><a href="#p1">正文</a></p>
+<ul>
+  <li><a href="#p11">精确覆盖问题</a></li>
+  <li><a href="#p12">解决精确覆盖问题</a></li>
+  <li><a href="#p13">舞蹈步骤</a></li>
+  <li><a href="#p14"> 效率分析</a></li>
+  <li> <a href="#p15">应用于六形组</a></li>
+  <li><a href="#p16">一个失败的试验</a></li>
+  <li><a href="#p17">应用于四形条</a></li>
+  <li><a href="#p18">应用于皇后问题</a></li>
+  <li><a href="#p19">结语</a></li>
+  <li><a href="#p1A">致谢</a></li>
+  <li><a href="#p1B">历史注记</a></li>
+  <li><a href="#p1C">程序</a></li>
+</ul>
+<p><a href="#p2">参考资料</a></p>
+<ul>
+  <li><a href="#p21">补注</a></li>
+</ul>
+<p><a href="#p3">译者的话</a></p>
+<ul>
+  <li><a href="#p31">译者隋清宇的话</a></li>
+  <li><a href="#p32">译者吴豪的话</a></li>
+  <li><a href="#p31">感谢</a></li>
+</ul>
+<p><a href="#p4">声明及其它</a></p>
+<p class="section"><a name="p1" id="p1"></a>正文</p>
+<p>我写这篇论文的目的，是觉得这个简单的程序技巧理应得到广泛认可。假设x指向双向链的一个节点；L[x]和R[x]分别表示x的前驱节点和后继节点。每个程序员都知道如下操作：</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center">L[R[x]] ← L[x], R[L[x]] ← R[x]</div></td>
+    <td width="50pt"><div align="center">（1）</div></td>
+  </tr>
+</table>
+<p align="left">是将x从链表删除的操作；但是只有少数程序员意识到如下操作：</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center">L[R[x]] ← x, R[L[x]] ← x</div></td>
+    <td width="50pt"><div align="center">（2）</div></td>
+  </tr>
+</table>
+<p>  是把x重新链接到双向链中。<br />
+  当然，指出这种操作以后，这个结果是显然的。但是，当我真正认识到操作（2）的作用以后，我突然感到了定义“啊哈”这个词语时候的感觉，因为，L[x]和R[x]的值在x从链表中删除以后早已没有了它原来的语义。确实，一个精心设计的程序在x被删除后会通过把L[x],R[x]赋值为x 或者赋值为空值（null）来清理掉这些不用的数据结构。而让一个链外的对象指向链本身有时具有潜在的危险性。例如，指针就可以干扰垃圾回收机制的运作。<br />
+  那么是什么关于操作（2）的研究促使我写一整篇论文来讨论这个问题呢？当x从链表删除以后；为什么还要把它放回链表中？嗯，我承认，数据结构的更新通常来说是永久性的。但是非永久性的更新也时常发生。例如，在一个交互性的程序中，用户很可能想撤销他所做的一个或一系列操作，恢复到先前的状态。另一个典型的应用是在<em>回溯程序</em>（<em>backtrack programs</em>） <a href="#r16">[16]</a>里,回溯程序枚举约束集合里的所有解。回溯，也叫<em>深度优先搜索</em>（<em>depth-first search</em>），在之前的论文中曾经讨论到。<br />
+  操作（2）的观点是Hitotumatu和Noshita <a href="#r22">[22]</a>于1979年提出的。他们提出Dijkstra提出的著名的解决N皇后问题 <a href="#r6">[6，第72-82页]</a>的算法在使用了这个技巧后，程序的速度比不使用几乎快了2倍。<br />
+  Floyd关于回溯和非确定性算法 <a href="#人1">[11]</a>之间关联的优雅论述中包含详细的数据结构更新与恢复的算法（谁能够提供这句话的准确翻译？——译者）。通常来说，回溯程序可以被认为是一种搜索，所要做的就是缩小这个任务需要搜索的范围，同时组织好用于控制搜索流程和决策的数据。对于多步的问题,解决问题的每一步操作，都将改变剩余需要解决的问题。<br />
+  简单情况下，我们可以考虑维护一个栈，用来保存当前搜索树节点之前的所有相关状态信息，但是这个任务的拷贝动作需要耗时太多。因此，我们通常选用全局数据结构。这样无论搜索进行到何种程度，它都会保留相关状态信息，并且当搜索回溯的时候它都能恢复先前状态。<br />
+  例如，Dijkstra解决n皇后问题的递归算法将当前状态保存在三个全局布尔（Boolean）数组中，他们分别表示棋盘上的列和2条对角线；Hitotumatu和Noshita的程序中使用双向链表来记录所有列和对角线上的可能性。当Dijkstra算法暂时放置一个皇后在棋盘上的时候，会把每个布尔数组里的一个数据从真改为假；回溯后又将这个数据改回真。Hitotumatu和Noshita使用（1）去删除一列，使用（2）去恢复删除操作；这意味着他们可以不通过搜索便找到一个空列。程序通过这种方法记录下每个状态信息，这样替换和恢复节点使得N皇后问题的计算更加高效。<br />
+  算法（2）的优雅之处就在于我们仅仅知道x的值就可以恢复（1）的操作。通常来说要恢复操作，需要我们记录下节点的左指针和它先前的值（请参阅 <a href="#r11">[11]</a>或 <a href="#r25">[25]</a>，268-284页）。但是在这个实例中，我们只需要知道x的值，而回溯程序在做通常的操作时恰恰又很容易得到节点的值。<br />
+  我们可以把（1）、（2）这对操作应用于涉及到大量操作的复杂数据结构的双向链上。这个删除元素的操作可以随时进行逆操作，因此它可以用来决定哪些元素需要被恢复（即用来恢复已经删除的元素——译者）。重建链表的恢复操作使得我们可以一直向后回溯到下一次向前递归为止。这个过程使得指针在数据结构内部被灵活运用，仿佛设计精巧的舞蹈动作。因此，我很愿意把（1）、（2）的这个技巧叫做<em>舞蹈链</em>（<em>Dancing Links</em>）。</p>
+<p><strong><a name="p11" id="p11"></a>精确覆盖问题。</strong>阐明Dancing Links威力的一种方法就是考虑一个能大致描述如下的一般问题：给定一个由0和1组成的矩阵，是否能找到一个行的集合，使得集合中每一列都恰好包含一个1？例如，下面这个矩阵<br />
+</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/list003.png" alt="list 3" width="191" height="118" /></div></td>
+    <td width="50"><div align="center">(3)</div></td>
+  </tr>
+</table>
+<p>就包含了这样一个集合（第1，4，5行）。我们把列想象成全集的一些元素，而行看作全集的一些子集；或者我们可以把行想象成全集的一些元素，而把列看作全集的一些子集；那么这个问题就是要求寻找一批元素，它们与每个子集恰好有一个交点。不管怎么说，这都是一个很难的问题，众所周知，当每行恰包含3个1时，这是个一个NP-完全问题 <a href="#r13">[13，第221页]</a>。自然，作为首选的算法就是回溯了。<br />
+Dana Scott完成了第一个关于回溯算法的实验。1958年，当他作为Princeton University普林斯顿大学 <a href="#r34">[34]</a>的一名研究生时，在Hale F. Trotter的帮助下,他在IAS &quot;MANIAC&quot; 机器上首次实现12片5格骨牌拼图问题（12片5格骨牌拼图问题要求把12片骨牌放入正方形棋盘，并且中间留有2x2的空格）的回溯解法。他的程序首次产生了所摆放的可能性。例如，65种解中的一种如图1所示（5格骨牌是n格骨牌在n=5时的特例；见 <a href="#r15">[15]</a>。Scott或许从Golomb的论文 <a href="#r14">[14]</a>和Martin Gardner的一些深入报告 <a href="#r12">[12]</a>中得到了灵感。）</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/pic001.png" alt="picture 001" width="186" height="185" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">图1 Scott的12片5格骨牌拼图问题</div></td>
+  </tr>
+</table>
+<p>这个问题是精确覆盖问题的一个特例。我们想象一个有72列的矩阵，其中12列是12个骨牌，剩下60列是六十个非中心部分的格子，构造出所有可能的行来代表在一块骨牌在棋盘上的放置方案；每行有一些‘1’，用来标识被覆盖的格子，5个1标识一个骨牌放置的位置（恰有1568个这样的行）。依据Golomb对骨牌命名的介绍 <a href="#p15">[15，第7页]</a>，我们将最前面的12列命名为F I L P N T U V W X Y Z，并且我们可以用两个数字ij给矩阵中对应棋盘上第i行第j列格子的那一列命名。通过给出那些出现了‘1’的列的名字，可以很方便地表示每一行。例如，图1就是与下面12行的对应的精确覆盖。</p>
+<div align="center">
+  <table width="200" border="0">
+    <tr>
+      <td><div align="center">I</div></td>
+      <td><div align="center">11</div></td>
+      <td><div align="center">12</div></td>
+      <td><div align="center">13</div></td>
+      <td><div align="center">14</div></td>
+      <td><div align="center">15</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">N</div></td>
+      <td><div align="center">16</div></td>
+      <td><div align="center">26</div></td>
+      <td><div align="center">27</div></td>
+      <td><div align="center">37</div></td>
+      <td><div align="center">47</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">L</div></td>
+      <td><div align="center">17</div></td>
+      <td><div align="center">18</div></td>
+      <td><div align="center">28</div></td>
+      <td><div align="center">38</div></td>
+      <td><div align="center">48</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">U</div></td>
+      <td><div align="center">21</div></td>
+      <td><div align="center">22</div></td>
+      <td><div align="center">31</div></td>
+      <td><div align="center">41</div></td>
+      <td><div align="center">42</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">X</div></td>
+      <td><div align="center">23</div></td>
+      <td><div align="center">32</div></td>
+      <td><div align="center">33</div></td>
+      <td><div align="center">34</div></td>
+      <td><div align="center">43</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">W</div></td>
+      <td><div align="center">24</div></td>
+      <td><div align="center">25</div></td>
+      <td><div align="center">35</div></td>
+      <td><div align="center">36</div></td>
+      <td><div align="center">46</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">P</div></td>
+      <td><div align="center">51</div></td>
+      <td><div align="center">52</div></td>
+      <td><div align="center">53</div></td>
+      <td><div align="center">62</div></td>
+      <td><div align="center">63</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">F</div></td>
+      <td><div align="center">56</div></td>
+      <td><div align="center">64</div></td>
+      <td><div align="center">65</div></td>
+      <td><div align="center">66</div></td>
+      <td><div align="center">75</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">Z</div></td>
+      <td><div align="center">57</div></td>
+      <td><div align="center">58</div></td>
+      <td><div align="center">67</div></td>
+      <td><div align="center">76</div></td>
+      <td><div align="center">77</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">T</div></td>
+      <td><div align="center">61</div></td>
+      <td><div align="center">71</div></td>
+      <td><div align="center">72</div></td>
+      <td><div align="center">73</div></td>
+      <td><div align="center">81</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">V</div></td>
+      <td><div align="center">68</div></td>
+      <td><div align="center">78</div></td>
+      <td><div align="center">86</div></td>
+      <td><div align="center">87</div></td>
+      <td><div align="center">88</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">Y</div></td>
+      <td><div align="center">74</div></td>
+      <td><div align="center">82</div></td>
+      <td><div align="center">83</div></td>
+      <td><div align="center">84</div></td>
+      <td><div align="center">85</div></td>
+    </tr>
+  </table>
+</div>
+<p><strong><a name="p12" id="p12"></a>解决精确覆盖问题。</strong>对于接下来的非确定性算法，由于我们没有想到更好的名字，我们将称之为X算法，它能够找到由特定的01矩阵A定义的精确覆盖问题的所有解。X算法是实现试验——错误这一显而易见的方法的一段简单的语句（确实，一般来说，我想不到别的合理的方法来完成这个工作）。</p>
+<blockquote>
+  <p> 如果A是空的，问题解决；成功终止。<br />
+    否则，选择一个列c（确定的）。<br />
+    选择一个行r，满足 A[r, c]=1 （不确定的）。<br />
+    把r包含进部分解。<br />
+    对于所有满足 A[r,j]=1 的j，<br />
+    　　从矩阵A中删除第j列；<br />
+    　　对于所有满足 A[i,j]=1 的i，<br />
+    　　　　从矩阵A中删除第i行。<br />
+  在不断减少的矩阵A上递归地重复上述算法。</p>
+</blockquote>
+<p>对r不确定的选择意味着这个算法本质上把自身复制给许多独立的子算法；每个子算法继承了当前的矩阵A，但在考虑不同行r的同时对其进行了删减。如果列c全部是0，那么就不存在子算法而且这个过程会不成功地终止。很自然地，所有的子算法搭建了一棵搜索树，其根部就是初始问题，并且第k层的每个子算法对应k个选择的行。回溯就是前序遍历这棵树的过程，即“深度优先”。<br />
+这个程序中任意选择列c的体系规则都能找到所有解，但是有些规则运行起来比别的会好得多。例如，Scott <a href="#r34">[34]</a>说他最初更倾向于先放第一张骨牌，然后再放第二张，依此类推；这就对应了在于之相符该精确覆盖问题中先选择F列，再选择I列，等等。但是他很快意识到这个方法将会变得无可救药的慢。有192种放置F的方法，对于每种又有34种放置I的方法。<a href="#r24">[24]</a>中介绍的Monte Carlo计算法暗示了该方案的搜索树粗略估计会有2*10<sup>12</sup>个结点！相较之下，如果一开始选择11列（矩阵中对应棋盘上第1行第1列的那一列），并且大体上按照字典序选择第一个没有被覆盖的列，那么导出的搜索树仅有9,015,751个结点。一个更好的策略被Scott <a href="#r34">[34]</a>采用：他意识到X块本质上有3种不同的位置，即中心在23，24和33。更进一步，如果X在33处，我们可以假定P块没有“翻转”，这么一来它就只能取8个方向中的4种。接着我们一次得到65种本质不同的解，那么全部解集有8*65=520种解，这些解通过旋转和对称很容易得到。X和P的这些约束引导出了3个独立的问题，当按字典序选择列时,他们的搜索树分别：</p>
+<blockquote>
+  <p> 有103,005个结点和19组解 (X在23处)<br />
+    有106,232个结点和20组解 (X在24处)<br />
+    有126,636个结点和26组解 (X在33处,P没有翻转)。</p>
+</blockquote>
+<p> Golomb和Baurnert <a href="#r16">[16]</a>建议，在每个回溯的过程中，选择能够导出最少分支的子问题，任何时候这都是可以被有效完成的。在精确覆盖问题中，这意味着我们希望每步都选择在当前A中包含1最少的列。幸运的是我们将看到dancing links技术让我们相当好地做到这一点；使用这个技术后，Scott的骨牌问题的搜索树将分别仅有：</p>
+<blockquote>
+  <p> 10,421 个结点 (X在23处)<br />
+    12,900 个结点 (X在24处)<br />
+  14,045 个结点 (X在33处,P没有翻转)。</p>
+</blockquote>
+<p><strong><a name="p13" id="p13"></a>舞蹈步骤。</strong>一个实现X算法的好方法就是将矩阵A中的每个1用一个有5个域L[x]、R[x]、U[x]、D[x]、C[x]的<em>数据对象</em>（<em>data object</em>）x来表示。矩阵的每行都是一个经由域L和R(“左”和“右”)双向连接的环状链表；矩阵的每列是一个经由域U和D(“上”和“下”)双向连接的环状链表。每个列链表还包含一个特殊的数据对象，称作它的<em>表头</em>（<em>list header</em>）。<br />
+  这些表头是一个称作<em>列对象</em>（<em>column object</em>）的大型对象的一部分。每个列对象y包含一个普通数据对象的5个域L[y]、R[y]、U[y]、D[y]和C[y]，外加两个域S[y]（大小）和N[y]（名字）；这里“大小”是一个列中1的个数，而“名字”则是用来标识输出答案的符号。每个数据对象的C域指向相应列头的列对象。<br />
+  表头的L和R连接着所有需要被覆盖的列。这个环状链表也包含一个特殊的列对象称作“根”，h，它相当于所有活动表头的主人。而且它不需要U[h]、D[h]、C[h]、S[h]和N[h]这几个域。<br />
+举个例子，（3）中的0-1矩阵将用这些数据对象来表示，就像图2展示的那样，我们给这些列命名为A、B、C、D、E、F和G（这个图表在上下左右处“环绕扭曲”。C的连线没有画出，因为他们会把图形弄乱；每个C域指向每列最顶端的元素）。</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/pic002.png" alt="picture 002" width="344" height="324" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">图2 完全覆盖问题（3）的四方向连接表示法</div></td>
+  </tr>
+</table>
+<p>我们寻找所有精确覆盖的不确定性算法现在可以定型为下面这个明析、确定的形式，即一个递归过程search(k)，它一开始被调用时k=0：</p>
+<blockquote>
+  <p>如果 R[h]=h ，打印当前的解（见下）并且返回。<br />
+    否则选择一个列对象c（见下）。<br />
+    覆盖列c（见下）。<br />
+    对于每个r←D[c]，D[D[c]]，……，当 r!=c，<br />
+    　　设置 O<sub>k</sub>&lt;-r；<br />
+    　　对于每个j←R[r]，R[R[r]]，……，当 j!=r，<br />
+    　　　　覆盖列j（见下）；<br />
+    　　search(k+1)；<br />
+    　　设置 r←O<sub>k</sub> 且 c←C[r]；<br />
+    　　对于每个j←L[r]，L[L[r]]，……，当 j!=r，<br />
+    　　　　取消列j的覆盖（见下）。<br />
+    取消列c的覆盖（见下）并且返回。</p>
+</blockquote>
+<p>输出当前解的操作很简单：我们连续输出包含O<sub>0</sub>、O<sub>1</sub>、……、O<sub>k-1</sub>的行,这里包含数据对象O的行可以通过输出N[C[O]]、N[C[R[O]]]、N[C[R[R[O]]]]……来输出。</p>
+<p> 为了选择一个列对象c,我们可以简单地设置c&lt;-R[h]；这是最左边没有覆盖的列。或者如果我们希望使分支因数达到最小，我们可以设置s&lt;-无穷大，那么接下来：</p>
+<blockquote>
+  <p> 对于每个j←R[h]，R[R[h]]，……，当 j!=h，<br />
+    　　如果 S[j]&lt;s  设置 c←j 且 s←S[h]。</p>
+</blockquote>
+<p>那么c就是包含1的序数最小的列(如果不用这种方法减少分支的话，S域就没什么用了)。<br />
+覆盖列c的操作则更加有趣：把c从表头删除并且从其他列链表中去除c链表的所有行。</p>
+<blockquote>
+  <p>设置 L[R[c]]←L[c] 且 R[L[c]]←R[c]。<br />
+    对于每个i←D[c]，D[D[c]]，……，当 i!=c，<br />
+    　　对于每个j←R[i]，R[R{i]]，……，当 j!=i，<br />
+    　　　　设置 U[D[j]]←U[j]，D[U[j]]←D[j]，<br />
+    　　　　并且设置 S[C[j]]←S[C[j]]-1。</p>
+</blockquote>
+<p>操作（1），就是我在本文一开始提到的，在这里他被用来除去水平、竖直方向上的数据对象。<br />
+最后，我们到达了整个算法的尖端，即还原给定的列c的操作。这里就是链表舞蹈的过程：</p>
+<blockquote>
+  <p> 对于每个i←U[c]，U[U[c]]，……，当 j!=i，<br />
+    　　对于每个j←L[i]，L[L[i]]，……，当 j!=i，<br />
+    　　　　设置 S[C[j]]←S[C[j]]+1，<br />
+    　　　　并且设置 U[D[j]]←j，D[U[j]]←j。<br />
+    设置 L[R[c]]←c 且 R[L[c]]←c。</p>
+</blockquote>
+<p>注意到还原操作正好与覆盖操作执行的顺序相反，我们利用操作（2）来取消操作（1）。（其实没必要严格限制“后执行的先取消”，由于j可以以任何顺序穿过第i行；但是从下往上取消对行的移除操作是非常重要的，因为我们是从上往下把这些行移除的。相似的，对于第r行从右往左取消列的移除操作也是十分重要的，因为我们是从左往右覆盖的。）</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/pic003.png" alt="picture 003" width="344" height="323" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">图3 图2中第A列后面的链表被覆盖</div></td>
+  </tr>
+</table>
+<p>考虑一下，例如，对图2表示的数据（3）执行search(0)会发生什么。通过从其他列移除A的行来将其覆盖；那么现在整个结构就成了图3的样子。注意现在D列出现了不对称的链接：上面的元素首先被删除，所以它仍然指向初始的邻居，但是另一个被删除的元素指向了列头。<br />
+继续search(0)，当r指向（A，D，G）这一行的A元素时，我们也覆盖D列和G列。图4展示了我们进入search(1)时的状态，这个数据结构代表削减后的矩阵</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/list004.png" alt="list 004" width="121" height="67" /></div></td>
+    <td width="50"><div align="center">（4）</div></td>
+  </tr>
+</table>
+<p>现在search(1)将覆盖B列，而且C列将没有“1”。因此search(2)将什么也找不到。接着search(1)会找不到解并返回，图4的状态会恢复。外部的过程，search(0)，将把图4变回图3，而且它会让r前进到（A，D）行的A元素处。</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/pic004.png" alt="picture 004" width="344" height="324" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">图4 图3中D列和G列后的链被覆盖</div></td>
+  </tr>
+</table>
+<p>很快就能找到解，并输出</p>
+<div align="center">
+  <table width="100" border="0">
+    <tr>
+      <td><div align="center">A</div></td>
+      <td><div align="center">D</div></td>
+      <td><div align="center"></div></td>
+    </tr>
+    <tr>
+      <td><div align="center">E</div></td>
+      <td><div align="center">F</div></td>
+      <td><div align="center">C</div></td>
+    </tr>
+    <tr>
+      <td><div align="center">B</div></td>
+      <td><div align="center">G</div></td>
+      <td><div align="center"></div></td>
+    </tr>
+  </table>
+</div>
+<p>如果在选择c的时候无视S域，会输出</p>
+<div align="center">
+  <table width="100" border="0">
+    <tr>
+      <td><div align="center">A</div></td>
+	  <td><div align="center">D</div></td>
+      <td><div align="center"></div></td>
+    </tr>
+    <tr>
+      <td><div align="center">B</div></td>
+      <td><div align="center">G</div></td>
+      <td><div align="center"></div></td>
+    </tr>
+    <tr>
+      <td><div align="center">C</div></td>
+      <td><div align="center">E</div></td>
+      <td><div align="center">F</div></td>
+    </tr>
+  </table>
+</div>
+<p>如果每步选择最短的列。（每行输出的第一项是已经完成分支的列的名字）在一些例子上试验过这个算法的读者应该会明白我为什么给这篇论文选这个标题。</p>
+<p><strong><a name="p14" id="p14"></a>效率分析。</strong>当算法X用Dancing Links实现时，让我们称之为DLX算法。DLX算法的运行时间本质上和它执行操作（1）来移除表中对象的次数是成比例的；这同时也是它执行操作（2）来还原对象的次数。我们把这个数量称作<em>更新</em>（<em>updates</em>）的次数。如果每步选择最短的列，则在对（3）求解的的过程中共做了28次更新：第0层更新10次，第1层更新14次，第2层更新4次。如果我们忽略启发条件S，这个算法就在第1层更新16次，在第2层更新7次，总计33次。但是在后者的更新明显快些，因为S[C[j]←S[C[j]]±1这样的语句可以忽略；因此全部的运行时间会少些。当然，我们在给启发条件S的期望效果下一般结论前还需要对一些大规模的实例进行分析。</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/pic005.png" alt="picture 005" width="551" height="324" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">图5 Scott的12片5格骨牌拼图问题的搜索树</div></td>
+  </tr>
+</table>
+<p>一个回溯程序通常把大部分时间用于搜索树的寥寥数层当中（参见 <a href="#r24">[24]</a>）。例如，图5展示了对于X=23的Dana Scott的12片5格骨牌拼图问题使用启发条件S的搜索树。其轮廓如下：</p>
+<div align="center">
+<table width="400" border="0">
+  <tr>
+    <td><div align="right">层数</div></td>
+    <td><div align="center">结点数</div></td>
+    <td><div align="center">更新次数</div></td>
+    <td><div align="center">每个结点的更新次数</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">0</div></td>
+    <td><div align="right">1 ( 0%)</div></td>
+    <td><div align="right">2,031 ( 0%)</div></td>
+    <td><div align="center">2031.0</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">1</div></td>
+    <td><div align="right">2 ( 0%)
+    </div>
+      <div align="right"></div></td>
+    <td><div align="right">1,676 ( 0%)</div></td>
+    <td><div align="center">838.0</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">2</div></td>
+    <td><div align="right">22 ( 0%)</div></td>
+    <td><div align="right">28,492 ( 1%)</div></td>
+    <td><div align="center">1295.1</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">3</div></td>
+    <td><div align="right">77 ( 1%)</div></td>
+    <td><div align="right">77,687 ( 2%)</div></td>
+    <td><div align="center">1008.9</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">4</div></td>
+    <td><div align="right">219 ( 2%)</div></td>
+    <td><div align="right">152,957 ( 4%)</div></td>
+    <td><div align="center">698.4</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">5</div></td>
+    <td><div align="right">518 ( 5%)</div></td>
+    <td><div align="right">367,939 (10%)</div></td>
+    <td><div align="center">710.3</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">6</div></td>
+    <td><div align="right">1,395 (13%)</div></td>
+    <td><div align="right">853,788 (24%)</div></td>
+    <td><div align="center">612.0</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">7</div></td>
+    <td><div align="right">2,483 (24%)</div></td>
+    <td><div align="right">941,265 (26%)</div></td>
+    <td><div align="center">379.1</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">8</div></td>
+    <td><div align="right">2,574 (25%)</div></td>
+    <td><div align="right">740,523 (20%)</div></td>
+    <td><div align="center">287.7</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">9</div></td>
+    <td><div align="right">2,475 (24%)</div></td>
+    <td><div align="right">418,334 (12%)</div></td>
+    <td><div align="center">169.0</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">10</div></td>
+    <td><div align="right">636 ( 6%)</div></td>
+    <td><div align="right">32,205 ( 1%)</div></td>
+    <td><div align="center">50.6</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">11</div></td>
+    <td><div align="right">19 ( 0%)</div></td>
+    <td><div align="right">826 ( 0%)</div></td>
+    <td><div align="center">43.5</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">合计</div></td>
+    <td><div align="right">10,421(100%)</div></td>
+    <td><div align="right">3,617,723(100%)</div></td>
+    <td><div align="center">347.2</div></td>
+  </tr>
+</table>
+</div>
+<p>（第k层的“更新次数”表示在第k-1层到第k层之间的计算过程中，元素从双向链表中被移除的次数。第0层的2031次更新对应着从表头中移除X列，并从其他列中移除2030/5=406行；这些行和X在23处的放置相交迭。把数据列成表时做了一个小小的优化：列c在没有行这样的琐屑情形中既不被覆盖也不被还原。）注意超过半数的节点层数&gt;=8，但是超过半数的更新发生在第7层之前。在前几层上的额外工作减少了后几层上困难工作的需求。<br />
+相应的，同一个问题在不利用S域的启发顺序时有着类似的统计量：</p>
+<div align="center">
+  <table width="400" border="0">
+    <tr>
+      <td><div align="right">层数</div></td>
+      <td><div align="center">结点数</div></td>
+      <td><div align="center">更新次数</div></td>
+      <td><div align="center">每个结点的更新次数</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">0</div></td>
+      <td><div align="right">1 ( 0%)</div></td>
+      <td><div align="right">2,031 ( 0%)</div></td>
+      <td><div align="center">2031.0</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">1</div></td>
+      <td><div align="right">6 ( 0%) </div>
+          <div align="right"></div></td>
+      <td><div align="right">5,606 ( 0%)</div></td>
+      <td><div align="center">934.3</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">2</div></td>
+      <td><div align="right">24 ( 0%)</div></td>
+      <td><div align="right">30,111 ( 0%)</div></td>
+      <td><div align="center">1254.6</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">3</div></td>
+      <td><div align="right">256 ( 0%)</div></td>
+      <td><div align="right">249,904 ( 1%)</div></td>
+      <td><div align="center">976.2</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">4</div></td>
+      <td><div align="right">581 ( 1%)</div></td>
+      <td><div align="right">432,471 ( 2%)</div></td>
+      <td><div align="center">744.4</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">5</div></td>
+      <td><div align="right">1,533 ( 1%)</div></td>
+      <td><div align="right">1,256,556 ( 7%)</div></td>
+      <td><div align="center">819.7</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">6</div></td>
+      <td><div align="right">3,422 ( 3%)</div></td>
+      <td><div align="right">2,290,338 (13%)</div></td>
+      <td><div align="center">669.3</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">7</div></td>
+      <td><div align="right">10,381 (10%)</div></td>
+      <td><div align="right">4,442,572 (25%)</div></td>
+      <td><div align="center">428.0</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">8</div></td>
+      <td><div align="right">26,238 (25%)</div></td>
+      <td><div align="right">5,804,161 (33%)</div></td>
+      <td><div align="center">221.2</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">9</div></td>
+      <td><div align="right">46,609 (45%)</div></td>
+      <td><div align="right">3,006,418 (17%)</div></td>
+      <td><div align="center">64.5</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">10</div></td>
+      <td><div align="right">13,935 (14%)</div></td>
+      <td><div align="right">284,459 ( 2%)</div></td>
+      <td><div align="center">20.4</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">11</div></td>
+      <td><div align="right">19 ( 0%)</div></td>
+      <td><div align="right">14,125 ( 0%)</div></td>
+      <td><div align="center">743.4</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">合计</div></td>
+      <td><div align="right">103,005(100%)</div></td>
+      <td><div align="right">17,818,752(100%)</div></td>
+      <td><div align="center">173.0</div></td>
+    </tr>
+  </table>
+</div>
+<p>当使用启发条件S时每次更新会用到14个存储空间，而忽略S时则是8个。因此在本例中启发条件S给总存储量乘上了一个数，大约是(14*3,617,723)/(8*17,818,752)=36%。这个启发条件在大规模实例中效果更佳显著，因为它给总结点数减少了一个随层数呈指数增长的因数，同时执行它的代价仅仅是线性增长的。<br />
+假定启发条件S在大规模树中能发挥奇效，但对于小规模树却效果不佳，我尝试了一个混合方案即在低层使用S而在高层不用。然而，这个试验没有成功。如果，例如，S在第7层被忽略，则8至11层的统计量如下：</p>
+<div align="center">
+  <table width="200" border="0">
+    <tr>
+      <td><div align="right">层数</div></td>
+      <td><div align="center">结点数</div></td>
+      <td><div align="center">更新次数</div></td>
+    </tr>
+
+    <tr>
+      <td><div align="right">8</div></td>
+      <td><div align="right">18,300</div></td>
+      <td><div align="right">5,672,258</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">9</div></td>
+      <td><div align="right">28,624</div></td>
+      <td><div align="right">2,654,310</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">10</div></td>
+      <td><div align="right">9,989</div></td>
+      <td><div align="right">213,944</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">11</div></td>
+      <td><div align="right">19</div></td>
+      <td><div align="right">10,179</div></td>
+    </tr>
+  </table>
+</div>
+<p>接着如果我们在第8层执行改变，统计量就是：</p>
+<div align="center">
+  <table width="200" border="0">
+    <tr>
+      <td><div align="right">层数</div></td>
+      <td><div align="center">结点数</div></td>
+      <td><div align="center">更新次数</div></td>
+    </tr>
+
+    <tr>
+      <td><div align="right">9</div></td>
+      <td><div align="right">11,562</div></td>
+      <td><div align="right">1,495,054</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">10</div></td>
+      <td><div align="right">6,113</div></td>
+      <td><div align="right">148,162</div></td>
+    </tr>
+    <tr>
+      <td><div align="right">11</div></td>
+      <td><div align="right">19</div></td>
+      <td><div align="right">6,303</div></td>
+    </tr>
+  </table>
+</div>
+<p>因此我决定在DLX算法的所有层中都实施启发条件S。<br />
+我那值得信赖的老SPARCstation2计算机，产于1992年，在处理大规模问题和维护S域时，每秒大约能执行39万次更新。斯坦福大学计算机系1996年购入的120MHz奔腾I计算机每秒能执行121万次更新，而我那新的500MHz奔腾III计算机每秒能执行594万次更新。因此运行时间随着技术的进步而减少；但是它仍然本质上和更新次数成比例，即链表舞蹈的次数。因此我更喜欢通过计算更新次数来衡量DLX算法的性能，而不是计算它用了多少秒。<br />
+Scott <a href="#r34">[34]</a>很高兴地发现他那MANIAC上的程序在3.5小时内解决了骨牌问题。MANIC每秒大约执行4000条指令，所以这代表粗略上有5千万条指令。他和T.F.Trotter发现一种使用MANIC的&#8220;位-与&#8221;指令的好办法，MANIC上有40位的寄存器。他们的代码，对搜索树的每个节点执行大约50,000,000&nbsp;/(103,005+&nbsp;106,2&nbsp;32+154,921)=140条指令，相当有效，尽管事实上他们不得不处理因启发顺序而产生的将近10倍的节点。更进一步，DLX算法的链表方法合计执行了3,617,723+4,547,186+5,526,988=13,691,897次更新，占用了1亿9200万的存储空间；而且它永远不可能符合MANIC那5120比特的存储空间！从这个立场来看，Dancing&nbsp;Links技术对于Scott那40周岁的方法确实是个退步，尽管这个方法只适用于非常特殊的精确覆盖问题，即能利用简单几何结构的问题。<br />
+找出在6*10的矩形上放置骨牌所有方案的任务会比Scott那8*8-2*2的问题更加困难，因为6*10问题的回溯树更大，而且存在2339组本质不同的解 <a href="#r21">[21]</a>。在这个情形下我们把X形骨牌限制在棋盘的左上角；我们的算法产生了902,631个节点和309,134,131次更新（或不使用启发条件S产生28,320,810个节点和4,107,105,935次更新）。它在奔腾III上可以用不足1分钟的时间解决这个问题；然而，我需要再次指出，骨牌的特殊角色允许有更快的算法。John&nbsp;G.Fletcher于1965年在IBM7094上仅用了10分钟就解决了这个问题，他利用了一个高度优化的程序，其内部循环有765条指令 <a href="#r10">[10]</a>。7094的时钟频率是0.7MHz，并且它在一个时钟周期内能接受两个36位的字。Fletcher的程序对于搜索树的每个节点仅需大约600*700,000/28,320,810=15个时钟周期；所以他的方法比Scott和Trotter的位运算方法更加高级，而且他是目前已知对于12骨牌放置问题最快的算法。(N.G.&nbsp;de&nbsp;Bruijn好像已经将其独立探索出来了，参见 <a href="#r7">[7]</a>。) <br />
+对Dana Scott的0-1矩阵问题稍作拓展，我们可以解决用12骨牌和一个四格板覆盖棋盘，且不限制四格板在棋盘中心的更一般的问题。这本质上是Dudeney的经典问题（Dudeney在1907年发明了骨牌 <a href="#r9">[9]</a>）。这样的棋盘划分总数显然没有在文献中出现；DLX算法经过1,526,279,783次更新确定了它恰好是16,146。<br />
+许多人写了关于多联骨牌问题的文章，包括一些著名数学家，如Golomb <a href="#r15">[15]</a>，de&nbsp;Bruijn <a href="#r7">[7]</a> <a href="#r8">[8]</a>，Berlekamp，Conway和Guy&nbsp;<a href="#r4">[4]</a>。他们对于放置骨牌的观点有时是基于枚举棋盘上填充单元格的方案数，有时是基于枚举可行的骨牌放置方案数。但是据我所知，没有人在以前指出这个问题是精确覆盖问题，在这个问题中，单元格和骨牌都具有优美的对称性。DLX算法可以分支出难填格子或难放骨牌的情况。这没什么区别，因为格子和骨牌都是给定输入矩阵中的列。<br />
+DLX算法对于某些搜索树层数很多的问题，往往能比其他程序做得更好。例如，我们考虑在15*15的棋盘上放置45个Y型五格骨牌的问题。Jenifer Haselgrove在被叫做ICS Multum的“快速迷你计算机”的帮助下于1973年研究了这个问题 <a href="#r20">[20]</a>。Multum在一个多小时以后生成了一个答案，但她还不确定是否有其他的可行解。现在，利用上面介绍的Dancing Links方法，我们几乎可以立即得到一些解，而且打印出的方案多达212种。这些解可以根据四个角的状态归为四类；图6中展示了每类的一种方案：</p>
+<div align="center">
+  <table width="700px" border="0">
+    <tr>
+      <td><div align="center"><img src="pic/pic006_1.png" alt="picture 006-1" width="231" height="231" /></div></td>
+      <td><div align="center"><img src="pic/pic006_2.png" alt="picture 006-2" width="231" height="231" /></div></td>
+    </tr>
+    <tr>
+      <td><div align="center">
+        <p >92组解，14,352,556个节点，1,764,631,769次更新</p>
+      </div></td>
+      <td><div align="center">
+        <p >100组解，10,258,180个节点，1,318,478,396次更新</p>
+      </div></td>
+    </tr>
+    <tr>
+      <td><div align="center"><img src="pic/pic006_3.png" alt="picture 006-3" width="231" height="231" /></div></td>
+      <td><div align="center"><img src="pic/pic006_4.png" alt="picture 006-4" width="231" height="231" /></div></td>
+    </tr>
+    <tr>
+      <td><div align="center">
+        <p >20组解，6,375,335个节点，806,699,079次更新</p>
+      </div></td>
+      <td><div align="center">
+        <p >0组解，1,234,485个节点，162,017,125次更新</p>
+      </div></td>
+    </tr>
+    <tr>
+      <td colspan="2"><div align="center">图6 将45个Y型五格骨牌放入一个正方形</div>        <div align="center"></div></td>
+    </tr>
+  </table>
+</div>
+<p><strong><a name="p15" id="p15"></a>应用于六形组。</strong>在五十年代后期，T. H. O'Beirne介绍了一种有趣的多联骨牌变种，即用三角形代替原骨牌中的方形。他将得出的形状称为多形组（polyiamond）：柩框形、宝石形、蛇形、蝶形、舟形等等。12种六形组（hexiamonds）由J. E. Reeve和J. A. Tyrell <a href="#r32">[32]</a>独立发现，他们发现将六形组铺成6*6的菱形有超过40种方法。图7中展示了一种放置方案，以及几个令我在刚开始接触六形组时忍不住动手尝试的箭头剖分。用这12种六形组铺成6*6的菱形恰有156种方案。（这个事实最初被P. J. Torbijn <a href="#r35">[35]</a>证明，他没有使用计算机；如果我们将&#8220;斯芬克斯形&#8221;的12种方向限制为3个，DLX算法可以经过37,313,405次更新证实他的结论。）</p>
+<div align="center">
+<table width="650px" border="0">
+  <tr>
+    <td width="50%" height="50%"><div align="center"><img src="pic/pic007_1.png" alt="picture 007-1" width="171" height="172" /></div></td>
+    <td><div align="center"><img src="pic/pic007_2.png" alt="picture 007-2" width="305" height="129" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">
+      <p >4个解，6,677个节点，4,687,159次更新</p>
+    </div></td>
+    <td><div align="center">
+      <p >0个解，7,603个节点，3,115,387次更新</p>
+    </div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center"><img src="pic/pic007_3.png" alt="picture 007-3" width="252" height="148" /></div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center">
+      <p >156个解，70,505个节点，37,313,405更新</p>
+    </div></td>
+  </tr>
+  <tr>
+    <td><div align="center"><img src="pic/pic007_4.png" alt="picture 007-4" width="252" height="127" /></div></td>
+    <td><div align="center"><img src="pic/pic007_5.png" alt="picture 007-5" width="170" height="196" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">
+      <p >41个解，35,332个节点，14,948,759次更新</p>
+    </div></td>
+    <td><div align="center">
+      <p >3个解，5,546个节点，3,604,817次更新</p>
+    </div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center">
+      <p >图7 将12种六形组塞入菱形和类箭头型</p>
+    </div></td>
+  </tr>
+</table>
+</div>
+<p>O'Beirne对于12种六形组中有7种在反转时能够得到不同形状这一现象非常着迷，而且这19种单面六形组能够搭建一个六边形：即六形组之六边形（如图8）。在1959年11月，经过了3个月的实验，他发现了一个解；两年之后他向《新科学家》的读者挑战来解决自己的问题 <a href="#r28">[28]</a> <a href="#r29">[29]</a> <a href="#r30">[30]</a>。其间，他向Richard&nbsp;Guy和他的家庭展示了这个难题。Guy的一家在新加坡，也就是Richard那时当教授的地方 <a href="#r17">[17]</a>发表了几组解。Richard Guy讲述了自己关于这个迷人游戏的故事 <a href="#r18">[18]</a>。他说当O'Beirne第一次描述这个难题的时候，“每个人都想立即试一试，48小时都没人睡觉。”<br />
+  一个每层有许多可能性的19层搜索树为Dancing&nbsp;Links方法营造了极好的测试环境，因此我把O'Beirne问题扔给我的程序 ^_^。我根据六形组到中心的距离把一般情况打散为7个子情况；此外，当距离为0时我考虑&#8220;皇冠形&#8221;的两种子情况。图8展示了7种情况的例子以及搜索的统计量。更新的总次数有134,425,768,494次。<br />
+  我的目标是不仅要计算出这些解，而且要寻找尽可能对称的安排，作为对Berlekamp，Guy和Conway的书《成功之路》 <a href="#r4">[4，第788页]</a>中一个问题的答复。我们定义构型的水平对称性为左右翻转前后均在个块之间边的数目数。这个覆盖六边形内部有156条边，19个单边六形组有96条内部虚边。因此如果一个方案完美对称——左右反转不发生改变——其水平对称性为60。但是没有这样完美对称可行解存在。构型的垂直对称性定义类似，只是变为上下翻转。六形组问题的&#8220;最优对称解&#8221;是所有可行解中水平或垂直对称分值最大且小分值与大分值尽量接近的解。图8中展示了每一类中对称性最大的解。（而且对于图1中展示的Dana&nbsp;Scott问题的解也是如此：它的垂直对称性为36，水平对称性为30。）<br />
+  可能得到的最大垂直对称性是50；它在图8（c）中已经实现，而且其他的7个解通过分别对三个对称子部分重排列得到。这八个中的四个水平对称性为32；其它的水平对称性为24。John&nbsp;Conway在1964年通过手算发现了这些解，并推测他们是&#8220;最佳对称覆盖&#8221;。但是这份荣誉只属于图8（f）的解，至少根据我的定义，因为图8（f）水平对称性为52，垂直对称性为27。其他水平对称性为52的几组解垂直对称性分别为20，22和24。（其中的两种方法竟然有惊人的性质：19块中的13块水平翻转前后没有发生变化；这是所有块的对称，而不仅仅是边。）<br />
+在我完成这个枚举之后，我首次阅读了<a href="#r18">[18]</a>，并了解到Marc&nbsp;M.Paulhus在1996年5月已经枚举出了所有解 <a href="#r31">[31]</a>。这很好，我的独立计算将验证这个结果。但是实际上他的程序并不正确——我的程序找到了124,519组解，他的程序找到了124,518组解！他在1999年重新运行了他的程序，现在我们达成了共识。</p>
+<div align="center">
+<table width="800px" border="0">
+  <tr>
+    <td colspan="2"><div align="center">（a）</div></td>
+    <td colspan="3"><div align="center">（b）</div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center"><img src="pic/pic008_1.png" alt="picture 008-1" width="186" height="172" /></div></td>
+    <td colspan="3"><div align="center"><img src="pic/pic008_2.png" alt="picture 008-2" width="186" height="172" /></div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center">
+      <p >水平对称性=51，垂直对称性=24<br />
+        1,914个解，4,239,132个节点，2,142,276,414次更新</p>
+    </div></td>
+    <td colspan="3"><div align="center">
+      <p >水平对称性=52，垂直对称性=24<br />
+        5,727个解，21,583,173个节点，11,020,236,507次更新</p>
+    </div></td>
+  </tr>
+  <tr>
+    <td><div align="center">（c）</div></td>
+    <td colspan="2"><div align="center">（d）</div></td>
+    <td colspan="2"><div align="center">（e）</div></td>
+  </tr>
+  <tr>
+    <td><div align="center"><img src="pic/pic008_3.png" alt="picture 008-3" width="185" height="171" /></div></td>
+    <td colspan="2"><div align="center"><img src="pic/pic008_4.png" alt="picture 008-4" width="184" height="172" /></div></td>
+    <td colspan="2"><div align="center"><img src="pic/pic008_5.png" alt="picture 008-5" width="186" height="171" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">
+      <p >水平对称性=32，垂直对称性=50<br />
+        11,447个解，20,737,702个节点，10,315,775,812次更新</p>
+    </div></td>
+    <td colspan="2"><div align="center">
+      <p >水平对称性=51，垂直对称性=22<br />
+        7,549个解，24,597,239个节点，12,639,698,345次更新</p>
+    </div></td>
+    <td colspan="2"><div align="center">
+      <p >水平对称性=48，垂直对称性=30<br />
+        6,675个解，17,277,362个节点，8,976,245,858次更新</p>
+    </div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center">（f）</div></td>
+    <td colspan="3"><div align="center">（g）</div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center"><img src="pic/pic008_6.png" alt="picture 008-6" width="186" height="172" /></div></td>
+    <td colspan="3"><div align="center"><img src="pic/pic008_7.png" alt="picture 008-7" width="185" height="171" /></div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center">
+      <p >水平对称性=52，垂直对称性=27<br />
+        15,717个解，43,265,607个节点，21,607,912,011次更新</p>
+    </div></td>
+    <td colspan="3"><div align="center">
+      <p >水平对称性=48，垂直对称性=29<br />
+        75,490个解，137,594,347个节点，67,723,623,547次更新</p>
+    </div></td>
+  </tr>
+  <tr>
+    <td colspan="5"><div align="center">
+      <p >图8 O'Beirne六形组六边形问题的解，小六边形到达六边形中心的距离各不相同。</p>
+    </div></td>
+  </tr>
+</table>
+</div>
+<p>O'Beirne <a href="#r29">[29]</a>还提出了一个类似的有18种单面骨牌的问题。他问能否把将这些骨牌塞入一个9*10的矩形中，而且Golomb在 <a href="#r15">[15，第6章]</a>中提供了一个例子。Jenifer&nbsp;Leech写程序验证了将单面骨牌放入3*30的矩形中恰有46种方案；详见 <a href="#r26">[26]</a>。图9展示了一个&#8220;最佳对称&#8221;的例子（它事实上并不是十分对称）。</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/pic009.png" alt="picture 009" width="624" height="65" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">
+      <p >46个解，605,440个节点，190,311,749次更新，水平对称性=27，垂直对称性=18</p>
+    </div></td>
+  </tr>
+  <tr>
+    <td><div align="center">图9 
+    用单面骨牌填充3*30的矩形</div></td>
+  </tr>
+</table>
+<p>我开始计算对于9*10矩形的解，每行用6个1来描述18阶段精确覆盖问题会比每行用7个1来描述19阶段精确覆盖问题容易。但是我很快发现这个任务没什么希望，除非我发现一个更好的算法。根据 <a href="#r24">[24]</a>中的蒙特卡罗估算程序知道这大概需要19后跟15个0这么多次更新，以及一个有64万亿的节点的巨型搜索树。如果这个估算是正确的，我可以在几个月内出解；但比起这我宁愿去找到一个新的麦森数。<br />
+然而，我设想了一个可能有最大水平对称值的解；如图10：</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/pic010.png" alt="picture 010" width="244" height="219" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">
+      <p >水平对称性=72，垂直对称性=47</p>
+    </div></td>
+  </tr>
+  <tr>
+    <td><div align="center">
+      <p >图10 这是用单面骨牌填充矩形的最具对称性的方案吗？</p>
+    </div></td>
+  </tr>
+</table>
+<p><strong><a name="p16" id="p16"></a>一个失败的试验。</strong>基于&#8220;染色&#8221;的特殊观点往往在解决瓷片类问题时具有重要的洞察力。例如，众所周知，在 <a href="#r5">[5，第142和394页]</a>中，我们移除两个对角上的格子，那么就无法用骨牌覆盖剩下的62个格子。原因是棋盘已经损毁，换句话说，就是有32个白色格子和30个黑色格子，但每块骨牌对于每种颜色只能覆盖一个单元格。如果我们对这个覆盖问题应用DLX算法，在得出无解的结论前，他会执行4,780,846次更新（而且找出13,922种方法来放置31块骨牌中的30块骨牌）。<br />
+六形组六边形问题可以用相似的方式黑白染色：所有指向左边的三角形都染成黑色，换句话说，就是所有指向右边的三角形都染成白色。那么单面六形组中的15种对于每种颜色都覆盖三个格子；而剩下的几种，即&#8220;斯芬克斯形&#8221;、&#8220;舟形&#8221;及其它们的对称形对于两种颜色分别占据4个格子和2个格子。因此这个问题的每组解必须恰好放置2个上述的四种六形组，并多占据黑格子。<br />
+我认为我应该对于每种放置这两块占黑格子多的六形组的方案都把问题划分成6个子问题来加速，每个子问题的解数大约是原问题的1/6，而且每个子问题都更为简单，因为六形组中的四种都只能执行原来操作的一半。因此我期望子问题的运行速度能是原问题的16倍左右，而且我希望得到一些额外的关于六形组之间的约束信息，从而让DLX算法作出更明智的决策。<br />
+但我最终在数字上得到了很糟糕的结果。原问题对于图8（c）用了8,976,245,858次更新得到了6675组解。粗略估计，六个子问题分别有955，1208，1164，1106，1272和970组解；但它们需要17亿到22亿次更新，而且完成所有子问题需要11,519,571,784次更新。这个&#8220;聪明&#8221;点子没带来什么好处。 </p>
+<p ><strong><a name="p17" id="p17"></a>应用于四形条。</strong>取代了方形和三角形，Brian&nbsp;Barwell <a href="#r3">[3]</a>考虑用4条线段或木棒来构成图形。他将这个图形称为多形条，并记载说有2种散形条，5种三形条，和16种四形条。四形条从娱乐的角度来看是十分有趣的；我在1993年收到了一个吸引人的难题，这个问题等价于在4*4的方格中放置10个四形条 <a href="#p16">[1]</a>，我花了好几个小时来攻破这个难题。<br />
+Barwell证明了16种四形条不能凑成任何对称图形。但是如果不用五种水平和竖直线段数不等的四形条中的某一种，我们可以找到填充5*5方形的方案（见图11）。这样的难题动手实现是相当困难的，而且他在写论文时也只找到了5组解；他估计可能有不到100组解。（全部解是由Wiezorke和Haubrich <a href="#r37">[37]</a>发现的，他们在看过 <a href="#r1">[1]</a>后独立探索了这个谜题。）<br />
+多形条问题还具有一个骨牌问题和多形组问题没有的特点：所有拼块不能相交。例如，图12展示了考虑图11（c）时发现的一个不可行解。虽然每条线段都覆盖了，但是“V”和“Z”相交了。<br />
+我们通过将其泛化为精确覆盖问题来处理这个复杂因素。取代了前面对0-1矩阵中列只能被不相交的行覆盖这个规则，我们将列区别成两类：初类和复类。这个泛化的问题要求每个初类列恰被覆盖一次，而每个复类列至多被覆盖一次。<br />
+图11（c）中的四形条问题可以用很自然的方法转化为一般的覆盖问题。首先我们介绍初类列：F、H、I、J、N、O、P、R、S、U、V、W、X、Y、Z，他们分别代表15种四形条（包括L），以及列Hxy和Vxy，他们分别代表水平线段（x，y）——（x+1，y）和垂直线段（x，y）——（x，y+1），0&lt;=x，y&lt;5。我们还需要复类列Ixy来表示内部的连接点（x，y），0&lt;x，y&lt;5。就像骨牌问题和六形组问题一样，每行代表一块拼板放置方案，当然如果一个拼板在非边界处有连续的水平线段或者垂直线段，它还得算上内部连接点。</p>
+<div align="center">
+<table width="600px" border="0">
+  <tr>
+    <td colspan="2"><div align="center">（a）</div></td>
+    <td colspan="3"><div align="center">（b）</div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center"><img src="pic/pic011_1.png" alt="picture 011-1" width="168" height="122" /></div></td>
+    <td colspan="3"><div align="center"><img src="pic/pic011_2.png" alt="picture 011-2" width="169" height="121" /></div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center">
+      <p >72个解，1,132,070个结点，283,814,227次更新</p>
+    </div>      </td>
+    <td colspan="3"><div align="center">
+      <p >382个解，3,422,455个结点，783,928,340次更新</p>
+    </div>      </td>
+  </tr>
+  <tr>
+    <td><div align="center">（c）</div>      </td>
+    <td colspan="2"><div align="center">（d）</div>      </td>
+    <td colspan="2"><div align="center">（e）</div>      </td>
+  </tr>
+  <tr>
+    <td><div align="center"><img src="pic/pic011_3.png" alt="picture 011-3" width="169" height="122" /></div>      </td>
+    <td colspan="2"><div align="center"><img src="pic/pic011_4.png" alt="picture 011-4" width="168" height="121" /></div>      </td>
+    <td colspan="2"><div align="center"><img src="pic/pic011_5.png" alt="picture 011-5" width="169" height="123" /></div>      </td>
+  </tr>
+  <tr>
+    <td><div align="center">
+      <p >607个解，2,681,188个结点，611,043,121次更新</p>
+    </div>      </td>
+    <td colspan="2"><div align="center">
+      <p >530个解，3,304,039个结点，760,578,623次更新</p>
+    </div>      </td>
+    <td colspan="2"><div align="center">
+      <p >204个解，1,779,356个结点，425,625,417次更新</p>
+    </div>      </td>
+  </tr>
+  <tr>
+    <td colspan="5"><div align="center">
+      <p>图11 
+        用16种四形条中的15种填充5*5的方形，我们必须不用H、J、L、N或者Y</p>
+      </div>      </td>
+  </tr>
+</table>
+</div>
+<br />
+<table width="100%" border="0">
+  <tr>
+    <td width="35%"><div align="center"><img src="pic/pic012.png" alt="picture 012" width="121" height="121" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center"><p >图12 四形条不能在这里相交</p></div></td>
+  </tr>
+</table>
+<p >举个例子，下面的两行就代表了图12中V和Z的放置方案：</p>
+<div align="center">
+<table width="300" border="0">
+  <tr>
+    <td><div align="center">V</div></td>
+    <td><div align="center">H23</div></td>
+    <td><div align="center">I33</div></td>
+    <td><div align="center">H33</div></td>
+    <td><div align="center">V43</div></td>
+    <td><div align="center">I44</div></td>
+    <td><div align="center">V44</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">Z</div></td>
+    <td><div align="center">H24</div></td>
+    <td><div align="center">V33</div></td>
+    <td><div align="center">I33</div></td>
+    <td><div align="center">V32</div></td>
+    <td><div align="center">H32</div></td>
+    <td><div align="center"></div></td>
+  </tr>
+</table>
+</div>
+<p >其公共的元素I33意味着这两行发生了相交。另一方面，I33不是初列，因为我们没有必要去覆盖它。图11（c）中的解就只覆盖了内部点I14、I21、I32和I41。<br />
+  幸运的是，我们几乎可以直接套用之前的算法来解决这个泛化覆盖问题。唯一的不同之处就是我们初始化时至给初列的列头做循环链表。每个复列的列头只需要将L和R域简单地指向自己就可以了。剩下的步骤和前面完全相同，因此我们仍将称之为DLX算法。<br />
+  我们只需简单地给每个复列添加一个在该列包含一个1的行即可把泛化覆盖问题转化为等价的精确覆盖问题。但是我们最好针对泛化问题进行处理，因为泛化的算法会更加简洁、快速。<br />
+我决定在焊接类四形条的子集上试验，即那些因为包含分支点而没有形成简单路径的：F、H、R、T、X、Y。如果我们向对待骨牌和多形组一样加入那些不对称多形条的镜像图形则有10个单面焊接类四形条。而且——啊哈——这10种四条形可以塞入4*4的格子（见图13）。只有三种可行解，包括下面展示的两种完美对称方案。我决定不展示出第三种解，X在这个解的中央，因为我希望读者能够自己找到它。</p>
+<div align="center">
+  <table width="400" border="0">
+    <tr>
+      <td><div align="center"><img src="pic/pic013_1.png" alt="picture 013-1" width="142" height="142" /></div></td>
+      <td><div align="center"><img src="pic/pic013_2.png" alt="picture 013-2" width="142" height="142" /></div></td>
+    </tr>
+    <tr>
+      <td colspan="2"><div align="center">
+        <p >图13 三种焊接类四条形填充方案中的两种</p>
+      </div></td>
+    </tr>
+  </table>
+</div>
+<p >单面<em>非焊接类四形条</em>有15种，我想他们应该能用类似的方式填充5*5的格子；但最终我发现这是不可行的。因为如果I型垂直放置，J、J&#8217;、L、L&#8217;、N、N&#8217;中的四种就必须尽量水平放置，而这严格地限制了其可行性。事实上，我无法用这些拼板凑出任何简单的对称图形，我至今最大的成果就是凑出了图14所展示的&#8220;双簧管&#8221;。</p>
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/pic014.png" alt="picture 014" width="561" height="116" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">
+      <p >图14 15种单面非焊接四形条</p>
+    </div></td>
+  </tr>
+</table>
+<br />
+<table width="100%" border="0">
+  <tr>
+    <td><div align="center"><img src="pic/pic015.png" alt="picture 015" width="125" height="125" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">
+      <p >图15 能用25种四形条构造这个图形吗？</p>
+    </div></td>
+  </tr>
+</table>
+<p >我还做过一个不成功的尝试，就是将所有的25种单面四形条塞进图15中的这个阿芝台克宝石图；但我没能找到方法来证明这个解是不存在的。目前看来，详尽的搜索也是不可能的。</p>
+<p ><strong><a name="p18" id="p18"></a>应用于皇后问题。</strong>现在我们回到那个促使Hitotumatu和Noshita介绍Dancing&nbsp;Links的问题，即N皇后问题，因为这个问题确实是我们应用于多形条的泛化覆盖问题的一个特例。例如，四皇后问题就是要求覆盖和行列对应的8个初列（R0、R1、R2、R3、F0、F1、F2、F3），以及与对角线对应的复列（A0、A1、A2、A3、A4、A5、A6、B0、B1、B2、B3、B4、B5、B6），只使用下面16行：</p>
+<div align="center">
+<table width="200" border="0">
+  <tr>
+    <td><div align="center">R0</div></td>
+    <td><div align="center">F0</div></td>
+    <td><div align="center">A0</div></td>
+    <td><div align="center">B3</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R0</div></td>
+    <td><div align="center">F1</div></td>
+    <td><div align="center">A1</div></td>
+    <td><div align="center">B4</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R0</div></td>
+    <td><div align="center">F2</div></td>
+    <td><div align="center">A2</div></td>
+    <td><div align="center">B5</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R0</div></td>
+    <td><div align="center">F3</div></td>
+    <td><div align="center">A3</div></td>
+    <td><div align="center">B6</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R1</div></td>
+    <td><div align="center">F0</div></td>
+    <td><div align="center">A1</div></td>
+    <td><div align="center">B2</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R1</div></td>
+    <td><div align="center">F1</div></td>
+    <td><div align="center">A2</div></td>
+    <td><div align="center">B3</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R1</div></td>
+    <td><div align="center">F2</div></td>
+    <td><div align="center">A3</div></td>
+    <td><div align="center">B4</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R1</div></td>
+    <td><div align="center">F3</div></td>
+    <td><div align="center">A4</div></td>
+    <td><div align="center">B5</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R2</div></td>
+    <td><div align="center">F0</div></td>
+    <td><div align="center">A2</div></td>
+    <td><div align="center">B1</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R2</div></td>
+    <td><div align="center">F1</div></td>
+    <td><div align="center">A3</div></td>
+    <td><div align="center">B2</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R2</div></td>
+    <td><div align="center">F2</div></td>
+    <td><div align="center">A4</div></td>
+    <td><div align="center">B3</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R2</div></td>
+    <td><div align="center">F3</div></td>
+    <td><div align="center">A5</div></td>
+    <td><div align="center">B4</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R3</div></td>
+    <td><div align="center">F0</div></td>
+    <td><div align="center">A3</div></td>
+    <td><div align="center">B0</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R3</div></td>
+    <td><div align="center">F1</div></td>
+    <td><div align="center">A4</div></td>
+    <td><div align="center">B1</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R3</div></td>
+    <td><div align="center">F2</div></td>
+    <td><div align="center">A5</div></td>
+    <td><div align="center">B2</div></td>
+  </tr>
+  <tr>
+    <td><div align="center">R3</div></td>
+    <td><div align="center">F3</div></td>
+    <td><div align="center">A6</div></td>
+    <td><div align="center">B3</div></td>
+  </tr>
+</table>
+</div>
+<p >一般来说，N皇后的0-1矩阵的每行应该是：</p>
+<div align="center">
+  <table width="400" border="0">
+    <tr>
+      <td><div align="center">Ri</div></td>
+      <td><div align="center">Fj</div></td>
+      <td><div align="center">A(i+j)</div></td>
+      <td><div align="center">B(N-1-i+j)</div></td>
+    </tr>
+  </table>
+</div>
+<p >对于0&lt;=i，j&lt;=N。（这里Ri和Fj代表棋盘中的行和列，而Ak和Bl则代表对角线和逆对角线。复列A(0)、A(2N-2)、B(0)和B(2N-2)在矩阵中都只能出现一个行，因此可以忽略它们。）<br />
+当我们在对这个泛化覆盖问题使用DLX算法时，它的操作和N皇后的传统算法十分不同，因为它有时会分支出不同的方式来占据行和列。进一步说，我们可以考虑通过S值（分支因数）来改变分支顺序来提高效率：先放棋盘中间的，因为这约束了更多之后放置的可能性。<br />
+考虑例如八皇后问题。图16（a）展示了一个空棋盘，有八种方式来占据行和列。假设我们决定在R4和F7的位置放置一个皇后，如图16（b）。接着就有5种方式覆盖F4；选择了R5和F4的位置之后，如图16（c），有4种方法覆盖R3，依此类推。在每个阶段我们选择约束性最强的行和列，利用&#8220;organ-pipe ordering&#8221;</p>
+<div align="center">R4 F4 R3 F3 R5 F5 R2 F2 R6 F6 R1 F1 R7 F7 R0 F0</div>
+<p >来打破约束。在图16（d）的R2和F3位置放置皇后后导致无法覆盖F2，所以只试放了4个皇后就要回溯。</p>
+<div align="center">
+<table width="600" border="0">
+  <tr>
+    <td><div align="center">（a）</div></td>
+    <td><div align="center">（b）</div></td>
+  </tr>
+  <tr>
+    <td><div align="center"><img src="pic/pic016_1.png" alt="picture 016-1" width="254" height="236" /></div></td>
+    <td><div align="center"><img src="pic/pic016_2.png" alt="picture 016-2" width="241" height="253" /></div></td>
+  </tr>
+  <tr>
+    <td><div align="center">（c）</div></td>
+    <td><div align="center">（d）</div></td>
+  </tr>
+  <tr>
+    <td><div align="center"><img src="pic/pic016_3.png" alt="picture 016-3" width="255" height="236" /></div></td>
+    <td><div align="center"><img src="pic/pic016_4.png" alt="picture 016-4" width="240" height="252" /></div></td>
+  </tr>
+  <tr>
+    <td colspan="2"><div align="center">
+      <p >图16 利用行列对称性解决八皇后问题</p>
+    </div></td>
+  </tr>
+</table>
+</div>
+<p >在DLX算法的开始时用这种顺序把首节点连接起来可以显著减少运行时间。例如，对于16皇后问题，如果使用R0&nbsp;R1 ……&nbsp;R15&nbsp;F0&nbsp;F1&nbsp;……&nbsp;F15的顺序，则搜索树有312,512,659个节点并需要5,801,583,789次更新，但如果使用organ-pipe ordering R8&nbsp;F8&nbsp;R7&nbsp;F7&nbsp;R9&nbsp;F9 …… R0&nbsp;F0，则仅需要大约原先54%的更新次数。另一方面，将行或列连起来的顺序对于算法的总运行时间是没有改善的。<br />
+以下提供DLX使用organ-pipe ordering解决N皇后问题一些小规模情况的统计数据，这里没有使用对称性减少解的数目：</p>
+<div align="center">
+<table width="600" border="0">
+  <tr>
+    <td><div align="center">N</div></td>
+    <td><div align="center">解数</div></td>
+    <td><div align="center">结点数</div></td>
+    <td><div align="center">结点更新次数</div></td>
+    <td><div align="center">R结点数</div></td>
+    <td><div align="center">R结点更新次数</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">1</div></td>
+    <td><div align="right">1</div></td>
+    <td><div align="right">2</div></td>
+    <td><div align="right">3</div></td>
+    <td><div align="right">2</div></td>
+    <td><div align="right">3</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">2</div></td>
+    <td><div align="right">0</div></td>
+    <td><div align="right">3</div></td>
+    <td><div align="right">19</div></td>
+    <td><div align="right">3</div></td>
+    <td><div align="right">19</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">3</div></td>
+    <td><div align="right">0</div></td>
+    <td><div align="right">4</div></td>
+    <td><div align="right">56</div></td>
+    <td><div align="right">6</div></td>
+    <td><div align="right">70</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">4</div></td>
+    <td><div align="right">2</div></td>
+    <td><div align="right">13</div></td>
+    <td><div align="right">183</div></td>
+    <td><div align="right">15</div></td>
+    <td><div align="right">207</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">5</div></td>
+    <td><div align="right">10</div></td>
+    <td><div align="right">46</div></td>
+    <td><div align="right">572</div></td>
+    <td><div align="right">50</div></td>
+    <td><div align="right">626</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">6</div></td>
+    <td><div align="right">4</div></td>
+    <td><div align="right">93</div></td>
+    <td><div align="right">1,497</div></td>
+    <td><div align="right">115</div></td>
+    <td><div align="right">1,765</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">7</div></td>
+    <td><div align="right">40</div></td>
+    <td><div align="right">334</div></td>
+    <td><div align="right">5,066</div></td>
+    <td><div align="right">376</div></td>
+    <td><div align="right">5,516</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">8</div></td>
+    <td><div align="right">92</div></td>
+    <td><div align="right">1,049</div></td>
+    <td><div align="right">16,680</div></td>
+    <td><div align="right">1,223</div></td>
+    <td><div align="right">18,849</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">9</div></td>
+    <td><div align="right">352</div></td>
+    <td><div align="right">3,440</div></td>
+    <td><div align="right">54,818</div></td>
+    <td><div align="right">4,640</div></td>
+    <td><div align="right">71,746</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">10</div></td>
+    <td><div align="right">724</div></td>
+    <td><div align="right">11,578</div></td>
+    <td><div align="right">198,264</div></td>
+    <td><div align="right">16,471</div></td>
+    <td><div align="right">269,605</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">11</div></td>
+    <td><div align="right">2,680</div></td>
+    <td><div align="right">45,393</div></td>
+    <td><div align="right">783,140</div></td>
+    <td><div align="right">67,706</div></td>
+    <td><div align="right">1,123,572</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">12</div></td>
+    <td><div align="right">14,200</div></td>
+    <td><div align="right">211,716</div></td>
+    <td><div align="right">3,594,752</div></td>
+    <td><div align="right">312,729</div></td>
+    <td><div align="right">5,173,071</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">13</div></td>
+    <td><div align="right">73,712</div></td>
+    <td><div align="right">1,046,319</div></td>
+    <td><div align="right">17,463,157</div></td>
+    <td><div align="right">1,589,968</div></td>
+    <td><div align="right">26,071,148</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">14</div></td>
+    <td><div align="right">365,596</div></td>
+    <td><div align="right">5,474,542</div></td>
+    <td><div align="right">91,497,926</div></td>
+    <td><div align="right">8,497,727</div></td>
+    <td><div align="right">139,174,307</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">15</div></td>
+    <td><div align="right">2,279,184</div></td>
+    <td><div align="right">31,214,675</div></td>
+    <td><div align="right">513,013,152</div></td>
+    <td><div align="right">49,404,260</div></td>
+    <td><div align="right">800,756,888</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">16</div></td>
+    <td><div align="right">14,772,512</div></td>
+    <td><div align="right">193,032,021</div></td>
+    <td><div align="right">3,134,588,055</div></td>
+    <td><div align="right">308,130,093</div></td>
+    <td><div align="right">4,952,973,201</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">17</div></td>
+    <td><div align="right">95,815,104</div></td>
+    <td><div align="right">1,242,589,512</div></td>
+    <td><div align="right">20,010,116,070</div></td>
+    <td><div align="right">2,015,702,907</div></td>
+    <td><div align="right">32,248,234,866</div></td>
+  </tr>
+  <tr>
+    <td><div align="right">18</div></td>
+    <td><div align="right">666,090,624</div></td>
+    <td><div align="right">8,567,992,237</div></td>
+    <td><div align="right">141,356,060,389</div></td>
+    <td><div align="right">13,955,353,609</div></td>
+    <td><div align="right">221,993,811,321</div></td>
+  </tr>
+</table>
+</div>
+<p >这里&#8220;R结点数&#8221;和&#8220;R结点更新次数&#8221;指代我们只考虑将R0、R1、……、R(N-1)作为需要覆盖初列时的结果；列Fj是复列。这样一来减少了一些只在棋盘的列上进行分支的操作。随着N的增长，将行和列进行混合的优势越来越明显，但是我不确定R结点更新次数和RF结点更新次数的比率在N趋近于无穷大时是极大还是收敛于一个常数。<br />
+我应当指出，其实也有不需要生成确切的放置皇后的方案就可以得到方案数的特殊方法存在 <a href="#r33">[33]</a>。</p>
+<p ><strong><a name="p19" id="p19"></a>总结备注。</strong>使用Dancing&nbsp;Links来对精确覆盖问题执行&#8220;自然&#8221;算法的DLX算法，是枚举这类问题的所有解的一种有效方法。对于小规模情况，这个算法与专门解决这类具有几何性质的问题（如N皇后问题，骨牌放置问题）的特殊算法速度差不多。而在大规模情况下，它甚至能比那些特殊算法更快，因为它有启发式的搜索顺序。而且随着计算机的速度越来越快，我们总能够计算越来越大规模的数据。<br />
+在这篇论文中我使用精确覆盖问题阐明了Dancing&nbsp;Links功能的多样性，但其实我还可找到更多能够渗透了这种思想的回溯应用。例如，对Waltz过滤算法的精确逼近 <a href="#r36">[36]</a>；或许正是它潜意识地引导我选择了这个名字。我最近对英文词典中大约600个三字母单词使用Dancing&nbsp;Links来寻找下面这样的方阵：</p>
+<div align="center">
+  <table width="250" border="0">
+    <tr>
+      <td><div align="center">ATE<br />
+      WIN<br />
+      LED</div></td>
+      <td><div align="center">BED<br />
+      OAR<br />
+      WRY</div></td>
+      <td><div align="center">OHM<br />
+      RUE<br />
+      BET</div></td>
+      <td><div align="center">PEA<br />
+      URN<br />
+      BAY</div></td>
+      <td><div align="center">TWO<br />
+      ION<br />
+      TEE</div></td>
+    </tr>
+  </table>
+</div>
+<p >这些方阵的每行、每列和每个对角线都是一个单词；大约6千万次更新就得出了所有的解。正如Haralick和Elliott在关于约束满足问题的早期论文中考虑的一样 <a href="#r19">[19]</a>，我相信舞蹈技术从长远来看会比在每层复制当前状态要好得多。这个方法确实更加简单、实用、有趣。</p>
+<blockquote>
+  <p>“What a dance / do they do / Lordy, I am tellin' you!” <a href="#r2">[2]</a></p>
+</blockquote>
+<p ><strong><a name="p1A" id="p1A"></a>致谢。</strong>感谢Sol&nbsp;Golomb、Richard&nbsp;Guy和Gene&nbsp;Freuder在我准备这篇论文时给我的帮助。感谢Maggie&nbsp;McLoughin将我凌乱的手稿制作成TeX文档时的出色工作。而且我由衷地感谢Tomas&nbsp;Rokicki，他为我的试验提供了新型电脑，我希望能在这台电脑上愉快地跳几年链表舞。</p>
+<p ><strong><a name="p1B" id="p1A2"></a>历史注记。</strong>（1）虽然IAS计算机在普林斯顿广泛被认为是&#8221;MANIAC&#8221;，但它其实属于类似却又不同的产于Los&nbsp;Alamos的计算机系列(参见 <a href="#r27">[27]</a>)。（2）George&nbsp;Jelliss <a href="#r23">[23]</a>发现著名谜题制作者H. D. Benjamin和T. R. Dawason在1946-1948进行了多形条概念的实验。然而他们显然没有公布任何工作进展。（3）我对四形条的命名和Barwell最初的命名有点出入 <a href="#r3">[3]</a>：我喜欢用J、R和U来称呼被他称作U、J和C的几个拼板。</p>
+<p ><strong><a name="p1C" id="p1A3"></a>程序。</strong>文件dance.w是我在准备这篇论文时使用的DLX算法的实现，在网页<a href="http://www-cs-faculty.stanford.edu/~knuth/program.html" >http://www-cs-faculty.stanford.edu/~knuth/program.html</a>上可以找到。相关的文件还有polyominoes.w、polyamonds.w、polysticks.w和queens.w。</p>
+<p class="section"><a name="p2" id="p2"></a>参考资料</p>
+<p><a name="r1" id="r1"></a>[1] <em>845 Combinations Puzzles: 845 Interestingly Combinations</em> (Taiwan: R.O.C. Patent 66009). [There is no indication of the author or manufacturer. This puzzle, which is available from www.puzzletts.com, actually has only 83 solutions. It carries a Chinese title, &quot;Dr. Dragon's Intelligence Profit System.&quot;]</p>
+<p><a name="r2" id="r2"></a>[2] Harry Barris, <em>Mississippi Mud</em> (New York: Shapiro, Bernstein &amp; Co., 1927).</p>
+<p><a name="r3" id="r3"></a>[3] Brian R. Barwell, &quot;Polysticks,&quot; Journal of Recreational Mathematics <strong>22</strong> (1990), 165-175.</p>
+<p><a name="r4" id="r4"></a>[4] Elwyn R. Berlekamp, John H. Conway, and Richard K. Guy, <em>Winning Ways for Your Mathematical Plays</em> <strong>2</strong> (London: Academic Press, 1982).</p>
+<p><a name="r5" id="r5"></a>[5] Max Black, <em>Critical Thinking</em> (Englewood Cliffs, New Jersey: Prentice-Hall, 1946). [Does anybody know of an earlier reference for the problem of the &quot;mutilated chessboard&quot;?]</p>
+<p><a name="r6" id="r6"></a>[6] Ole-Johan Dahl, Edsger W. Dijkstra, and C. A. R. Hoare, <em>Structured Programming</em> (London: Academic Press, 1972).</p>
+<p><a name="r7" id="r7"></a>[7] N. G. de Bruijn, personal communication (9 September 1999): &quot;... it was almost my first activity in programming that I got all 2339 solutions of the 6*10 pentomino on an IBM1620 in March 1963 in 18 hours. It had to cope with the limited memory of that machine, and there was not the slightest possibility to store the full matrix... But I could speed the matter up by having a very long program, and that one was generated by means of another program.&quot;</p>
+<p><a name="r8" id="r8"></a>[8] N. G. de Bruijn, &quot;Programmeren van de pentomino puzzle,&quot; <em>Euclides</em> <strong>47</strong> (1971/72), 90-104.</p>
+<p><a name="r9" id="r9"></a>[9] Henry Ernest Dudeney, &quot;74.--The broken chessboard,&quot; in <em>The Canterbury Puzzles</em>, (London: William Heinemann, 1907), 90-92, 174-175.</p>
+<p><a name="r10" id="r10"></a>[10] John G. Fletcher, &quot;A program to solve the pentomino problem by the recursive use of macros,&quot; <em>Communications of the ACM</em> <strong>8</strong> (1965), 621-623.</p>
+<p><a name="r11" id="r11"></a>[11] Robert W. Floyd, &quot;Nodeterministic algorithms&quot;, <em>Journal of the ACM</em> <strong>14</strong> (1967), 636-644.</p>
+<p><a name="r12" id="r12"></a>[12] Martin Gardner, &quot;Mathematical games: More about complex dominoes, plus the answers to last month's puzzles,&quot; <em>Scientific American</em> <strong>197</strong>, 6 (December 1957), 126-140.</p>
+<p><a name="r13" id="r13"></a>[13] Michael R. Gareyand David S. Johnson, <em>Computers and Intractability</em> (San Francisco: Freeman, 1979).</p>
+<p><a name="r14" id="r14"></a>[14] Solomon W. Golomb, &quot;Checkerboards and polyominoes,&quot; <em>American Mathematical Monthly</em> <strong>61</strong> (1954), 675-682.</p>
+<p><a name="r15" id="r15"></a>[15] Solomon W. Golomb, <em>Polyominoes</em>, second edition (Princeton, New Jersey: Princeton University Press, 1994).</p>
+<p><a name="r16" id="r16"></a>[16] Solomon W. Golomb and Leonard D. Baumart, &quot;Backtrack programming,&quot; <em>Journal of the ACM</em> <strong>12</strong> (1965), 516-524.</p>
+<p><a name="r17" id="r17"></a>[17] Richard K. Guy, &quot;Some mathematical recreations,&quot; <em>Nabla</em> (Bulletin of the Malayan Mathematical Society) <strong>7</strong> (1960), 97-106, 144-153.</p>
+<p><a name="r18" id="r18"></a>[18] Richard K. Guy, &quot;O'Beirne's Hexiamond,&quot; in <em>The Mathemagician and Pied Puzzler</em>, edited by Elwyn Berlekamp and Tom Rodgers (Natick, Massachusetts: A. K. Peters, 1999), 85-96.</p>
+<p><a name="r19" id="r19"></a>[19] Robert M. Haralick and Gordon L. Elliott, &quot;Increasing tree search efficiency for constraint satisfaction problems,&quot; <em>Artificial Intelligence</em> <strong>14</strong> (1980), 263-313.</p>
+<p><a name="r20" id="r20"></a>[20] Jenifer Haselgrove, &quot;Packing a square with Y-pentominoes,&quot; <em>Journal of Recreational Mathematics</em> <strong>7</strong> (1974), 229.</p>
+<p><a name="r21" id="r21"></a>[21] C. B. and Jenifer Haselgrove, &quot;A computer program for pentominoes,&quot; <em>Eureka</em> <strong>23</strong>, 2 (Cambrige, England: The Archimedeans, October 1960), 16-18.<br />
+</p>
+<p><a name="r22" id="r22"></a>[22] Hirosi Hitotumatu and Kohei Noshita, &quot;A technique for implementing backtrack 
+algorithms and its application,&quot; <em>Information Processing Letters</em> <strong>8</strong> (1979), 174-175.</p>
+<p><a name="r23" id="r23"></a>[23]  George P. Jelliss, &quot;Unwelded polysticks,&quot; <em>Journal of Recreational Mathematics</em> <strong>29</strong> (1998), 140-142.</p>
+<p><a name="r24" id="r24"></a>[24] Donald E. Knuth, &quot;Estimating the efficiency of backtrack programs,&quot; <em>Mathematics of Computation</em> <strong>29</strong> (1975), 121-136.</p>
+<p><a name="r25" id="r25"></a>[25] Donald E. Knuth, TeX: The Program (Reading, Massachusetts: Addison-Wesley, 1986).</p>
+<p><a name="r26" id="r26"></a>[26]  Jean Meeus, &quot;Some polyominio and polyamond problems,&quot; <em>Journal of Recreational Mathematics</em> <strong>6</strong> (1973), 215-220.</p>
+<p><a name="r27" id="r27"></a>[27] N. Metropolis and J. Worlton, &quot;A trilogy of errors in the history of computing,&quot; <em>Annals of the History of Computing</em> <strong>2</strong> (1980), 49-59.</p>
+<p><a name="r28" id="r28"></a>[28]  T. H. O'Beirne, &quot;Puzzles and Paradoxes 43: Pell's equation in two popular problems,&quot; <em>New Scientist</em> <strong>12</strong> (1961), 260-261.</p>
+<p><a name="r29" id="r29"></a>[29] T. H. O'Beirne, &quot;Puzzles and Paradoxes 44: Pentominoes and hexiamonds,&quot; <em>New Scientist</em> <strong>12</strong> (1961), 316-317. [&quot;So far as I know, hexiamond has not yet been put through the mill on a computer; but this could doubtless be done.&quot;]</p>
+<p><a name="r30" id="r30"></a>[30] T. H. O'Beirne, &quot;Puzzles and Paradoxes 45: Some hexiamond solutions: and an introduction to a set of 25 remarkable points,&quot; <em>New Scientist</em> <strong>12</strong> (1961), 379-380.</p>
+<p><a name="r31" id="r31"></a>[31] Marc Paulhus, &quot;Hexiamond Homepage,&quot; <a href="http://hi.baidu.com/keefo/blog/item/ae9fbfede2898f4b79f05532.html">http://www.math.ucalgary.ca/~paulhusm/hexiamond1</a>.</p>
+<p><a name="r32" id="r32"></a>[32] J. E. Reeve and J. A. Tyrell, &quot;Maestro puzzles,&quot; <em>The Mathematical Gazette</em> <strong>45</strong> (1961), 97-99.</p>
+<p><a name="r33" id="r33"></a>[33] Igor Rivin, Ilan Vardi, and Paul Zimmermann, &quot;The <em>n</em>-queens problem,&quot; <em>American Mathematical Monthly</em> <strong>101</strong> (1994), 629-639.</p>
+<p><a name="r34" id="r34"></a>[34] Dana S. Scott, &quot;Programming a combinatorial puzzle,&quot; Technical Report No.1 (Princeton, New Jersey: Princeton University Department of Electrical Engineering, 10 June 1958), ii+14+5 pages. [From page 10: &quot;... the main problem is the program was to handle several lists of indices that were continually being modified.&quot;]</p>
+<p><a name="r35" id="r35"></a>[35] P. J. Torbijn, &quot;Polyiamonds,&quot; <em>Journal of Recreational Mathematics</em> <strong>2</strong> (1969), 216-227.</p>
+<p><a name="r36" id="r36"></a>[36] David Waltz, &quot;Understanding line drawings of scenes with shadows,&quot; in <em>The Psychology of computer Vision</em>, edited by P. Winston (New York: McGraw-Hill, 1975), 19-91.</p>
+<p><a name="r37" id="r37"></a>[37] Bernhard Wiezorke and Jacques Haubrich, &quot;Dr. Dragon's polycons,&quot; <em>Cubism For Fun</em> <strong>33</strong> (Febuary 1994), 6-7.</p>
+<p><strong><a name="p21" id="p21"></a>补注</strong> 在1999年11月，拜罗伊特大学（Universität Bayreuth）的Alfred Wassermann成功用单面四形条覆盖了阿芝台克宝石图，他利用计算机集群运行了DLX算法。这个解答相当漂亮，它已经被发布在<a href="http://did.mat.uni-bayreuth.de/wassermann/allsolutions.ps.gz">http://did.mat.uni-bayreuth.de/wassermann/allsolutions.ps.gz</a></p>
+<p class="section"><strong><a name="p3" id="p3"></a>译者的话</strong></p>
+<p>正如Knuth本人所说，作者写作本文的目的正是希望传播这个看似很简单的程序技巧。而译者翻译本文，也是希望达到同样的目的。<br />
+本文基本忠于原作，部分图片的位置根据版式以及内容进行了微调。如果您认为翻译有什么不当的地方，请及时联系我们。</p>
+<p>关于Dancing Links这个词语的翻译，在第一次出现的部分我们将它称之为“舞蹈链”。但是之后出现的地方，我们全部用“Dancing Links”替代。因为我们觉得，“舞蹈链”这个名字，不能很好的体现出这个算法的美妙之处，于是我们沿用了Knuth的命名。如果你有什么更好的命名建议，也请联系我们。</p>
+<p><strong><a name="p31" id="p31"></a>译者隋清宇的话</strong><br />
+  当初看到这篇文章的时候，就被Dancing Links的美妙性质深深迷住。我把这篇文章交给吴豪的时候，他也有同样的想法。但是，这篇并不短的英文论文，给阅读带来了不小的障碍。<br />
+  于是，我和吴豪就开始着手文章的翻译工作。刚开始部分的翻译很顺利，但是当翻译了几乎一半的时候，我们的工作不得不暂停下来——主要原因是我即将参加NOI（全国信息学奥林匹克竞赛，<a href="http://www.noi.cn/">http://www.noi.cn/</a>）。接下来的一段时间，这件事情几乎被我忘记了。<br />
+  但就在前段时间，一个关于动态规划的英文文章（我们有在之后的某个时间开始翻译这篇文章的想法）突然让我和吴豪想起了这篇还没有完成的Dancing Links论文的翻译。于是找出以前的进度，然后在几天的时间内完成了最后的翻译工作。实际上，这篇文章的大部分翻译工作都是吴豪一手完成的，在这里我代表个人对他表示谢意。<br />
+  以前曾经写过一些小东西，比较成功的比如Splay的论文，而比较弱智的就很多了，比如KMP那篇不知所云的东西。不过对文章进行翻译，这是第一次，而且是Knuth大师的这么长的论文。如果没有吴豪的帮助，这个任务肯定不能完成。现在翻译即将结束，我感觉愈发的激动。<br />
+  希望我这篇文章能够对普及Dancing Links算法起到一些微不足道的推动作用，这样我就可以感到很满足了。</p>
+<p><strong><a name="p32" id="p32"></a>译者吴豪的话</strong><br />
+  链表，充满奇幻色彩的数据结构；<br />
+  &nbsp;回溯，解决难题的万能钥匙。<br />
+  Knuth教授在这篇文章中将两者有机地结合到了一起,<br />
+  &nbsp;从此，算法领域诞生了一颗新星———Dancing Links。<br />
+  我们将目睹，链表跳着那纤美、卓绝的舞步，优雅地在搜索树的世界穿梭；<br />
+  &nbsp;我们将领略，舞蹈技术的准确与迅速。<br />
+  从此，难题不再那么高不可攀；<br />
+  &nbsp;面对困难，我们也不再畏葸不前。<br />
+  NP不再是梦想；<br />
+  &nbsp;AC也成为了可能。<br />
+  来吧，让我们和Knuth教授一起，进入Dancing Links的世界；<br />
+  &nbsp;微笑着，带着轻盈的舞步，迎接新的挑战！<br />
+</p>
+<p><strong><a name="p33" id="p33"></a>感谢</strong> 感谢某篇本论文部分翻译（<a href="http://hi.baidu.com/keefo/blog/item/ae9fbfede2898f4b79f05532.html">http://hi.baidu.com/keefo/blog/item/ae9fbfede2898f4b79f05532.html</a>）的作者，本文的前几段均来自此文并做了少许修改。<br />
+感谢Kunth（<a href="http://www-cs-faculty.stanford.edu/~knuth/">http://www-cs-faculty.stanford.edu/~knuth/</a>）提出了如此美妙的算法，写出了如此精彩的论文。<br />
+感谢RchardX帮助制作本文的TeX版。<br />
+感谢天津市耀华中学的周楠帮助进行校对工作。 (^_^)<br />
+感谢北京师范大学的易超同学对本文提出修改意见。<br />
+感谢其他一切以各种方式对本文的制作与发布提供帮助的个人或集体。</p>
+<p class="section"><a name="p4" id="p4"></a>声明及其它</p>
+<p>本文不基于任何协议发布，任何人可以进行<strong>署名的非商业性的</strong>传播、复制及分发。原文著作权归Knuth本人所有，译文著作权归隋清宇及吴豪所有。如果你找到了本文的错误，请及时联系我们。</p>
+<p><strong>隋清宇的联系方式</strong><br />
+E-mail: sqybi@126.com<br />
+QQ: 420857280<br />
+个人主页: <a href="http://sqybi.com/">http://sqybi.com/</a></p>
+<p><strong>吴豪的联系方式</strong><br />
+E-mail: fqq11679@126.com<br />
+QQ: 380957860<br />
+BLOG: <a href="http://hexun.com/fqq11679/default.html">http://hexun.com/fqq11679/default.html</a></p>
+</body>
+</html>
